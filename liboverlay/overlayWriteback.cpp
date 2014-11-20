@@ -37,6 +37,9 @@ namespace overlay {
 
 //=========== class WritebackMem ==============================================
 bool WritebackMem::manageMem(uint32_t size, bool isSecure) {
+    if(isSecure) {
+        size = utils::align(size, SIZE_1M);
+    }
     if(mBuf.bufSz() == size) {
         return true;
     }
@@ -75,7 +78,7 @@ bool WritebackMem::dealloc() {
 }
 
 //=========== class Writeback =================================================
-Writeback::Writeback() : mXres(0), mYres(0), mOpFmt(-1), mSecure(false) {
+Writeback::Writeback() : mXres(0), mYres(0), mOpFmt(-1) {
     int fbNum = Overlay::getFbForDpy(Overlay::DPY_WRITEBACK);
     if(!utils::openDev(mFd, fbNum, Res::fbPath, O_RDWR)) {
         ALOGE("%s failed to init %s", __func__, Res::fbPath);
@@ -101,12 +104,8 @@ bool Writeback::startSession() {
 
 bool Writeback::stopSession() {
     if(mFd.valid()) {
-        if(!Overlay::displayCommit(mFd.getFD())) {
-            ALOGE("%s: displayCommit failed", __func__);
-            return false;
-        }
         if(!mdp_wrapper::wbStopTerminate(mFd.getFD())) {
-            ALOGE("%s: wbStopTerminate failed", __func__);
+            ALOGE("%s failed", __func__);
             return false;
         }
     } else {
@@ -140,8 +139,8 @@ bool Writeback::configureDpyInfo(int xres, int yres) {
     return true;
 }
 
-bool Writeback::configureMemory(uint32_t size) {
-    if(!mWbMem.manageMem(size, mSecure)) {
+bool Writeback::configureMemory(uint32_t size, bool isSecure) {
+    if(!mWbMem.manageMem(size, isSecure)) {
         ALOGE("%s failed, memory failure", __func__);
         return false;
     }
@@ -219,22 +218,6 @@ int Writeback::getOutputFormat() {
     return mOpFmt;
 }
 
-bool Writeback::setSecure(bool isSecure) {
-    if(isSecure != mSecure) {
-        // Call IOCTL to set WB interface as secure
-        struct msmfb_metadata metadata;
-        memset(&metadata, 0 , sizeof(metadata));
-        metadata.op = metadata_op_wb_secure;
-        metadata.data.secure_en = isSecure;
-        if (ioctl(mFd.getFD(), MSMFB_METADATA_SET, &metadata) < 0) {
-            ALOGE("Error setting MDP WB secure");
-            return false;
-        }
-        mSecure = isSecure;
-    }
-    return true;
-}
-
 //static
 
 Writeback *Writeback::getInstance() {
@@ -258,17 +241,6 @@ void Writeback::clear() {
         delete sWb;
         sWb = NULL;
     }
-}
-
-bool Writeback::getDump(char *buf, size_t len) {
-    if(sWb) {
-        utils::getDump(buf, len, "WBData", sWb->mFbData);
-        char str[4] = {'\0'};
-        snprintf(str, 4, "\n");
-        strlcat(buf, str, len);
-        return true;
-    }
-    return false;
 }
 
 Writeback *Writeback::sWb = 0;

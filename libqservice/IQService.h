@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 The Android Open Source Project
- * Copyright (C) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * Not a Contribution, Apache license notifications and license are
  * retained for attribution purposes only.
@@ -29,46 +29,35 @@
 #include <binder/IBinder.h>
 #include <IQClient.h>
 
-
 namespace qService {
 // ----------------------------------------------------------------------------
-
 class IQService : public android::IInterface
 {
 public:
     DECLARE_META_INTERFACE(QService);
     enum {
-        COMMAND_LIST_START = android::IBinder::FIRST_CALL_TRANSACTION,
-        SECURING,                // Hardware securing start/end notification
-        UNSECURING,              // Hardware unsecuring start/end notification
-        CONNECT,                 // Connect to qservice
-        SCREEN_REFRESH,          // Refresh screen through SF invalidate
-        EXTERNAL_ORIENTATION,    // Set external orientation
-        BUFFER_MIRRORMODE,       // Buffer mirrormode
-        CHECK_EXTERNAL_STATUS,   // Check status of external display
-        GET_DISPLAY_ATTRIBUTES,  // Get display attributes
-        SET_HSIC_DATA,           // Set HSIC on dspp
-        GET_DISPLAY_VISIBLE_REGION,  // Get the visibleRegion for dpy
-        PAUSE_WFD,               // Pause/Resume WFD
-        SET_WFD_STATUS,          // Set if wfd connection is on/off
-        VPU_COMMAND_LIST_START = 100, //Reserved block for VPU commands
-        VPU_COMMAND_LIST_END   = 200,
-        SET_VIEW_FRAME,          // Set view frame of display
-        COMMAND_LIST_END = 400,
+        // Hardware securing start/end notification
+        SECURING = android::IBinder::FIRST_CALL_TRANSACTION,
+        UNSECURING, // Hardware unsecuring start/end notification
+        CONNECT,
+        SCREEN_REFRESH,
+        EXTERNAL_ORIENTATION,
+        BUFFER_MIRRORMODE,
+        //VPU command codes - list is defined in vpu.h
+        VPU_COMMAND_LIST_START = 100,
+        VPU_COMMAND_LIST_END = 200,
     };
-
     enum {
         END = 0,
         START,
     };
-
-    // Register a client that can be notified
+    virtual void securing(uint32_t startEnd) = 0;
+    virtual void unsecuring(uint32_t startEnd) = 0;
     virtual void connect(const android::sp<qClient::IQClient>& client) = 0;
-    // Generic function to dispatch binder commands
-    // The type of command decides how the data is parceled
-    virtual android::status_t dispatch(uint32_t command,
-            const android::Parcel* inParcel,
-            android::Parcel* outParcel) = 0;
+    virtual android::status_t screenRefresh() = 0;
+    virtual void setExtOrientation(uint32_t orientation) = 0;
+    virtual void setBufferMirrorMode(uint32_t enable) = 0;
+    virtual android::status_t vpuCommand(uint32_t command, uint32_t setting) = 0;
 };
 
 // ----------------------------------------------------------------------------

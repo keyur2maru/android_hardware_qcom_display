@@ -39,42 +39,25 @@ namespace ovutils = overlay::utils;
 
 IFBUpdate* IFBUpdate::getObject(hwc_context_t *ctx, const int& dpy) {
     if(isDisplaySplit(ctx, dpy)) {
-        return new FBUpdateSplit(ctx, dpy);
+        return new FBUpdateSplit(dpy);
     }
-    return new FBUpdateNonSplit(ctx, dpy);
+    return new FBUpdateNonSplit(dpy);
 }
 
-IFBUpdate::IFBUpdate(hwc_context_t *ctx, const int& dpy) : mDpy(dpy) {
-    getBufferSizeAndDimensions(ctx->dpyAttr[dpy].xres,
-            ctx->dpyAttr[dpy].yres,
-            HAL_PIXEL_FORMAT_RGBA_8888,
-            mAlignedFBWidth,
-            mAlignedFBHeight);
-}
-
-void IFBUpdate::reset() {
+inline void IFBUpdate::reset() {
     mModeOn = false;
     mRot = NULL;
 }
 
-bool IFBUpdate::prepareAndValidate(hwc_context_t *ctx,
-                           hwc_display_contents_1 *list, int fbZorder) {
-    mModeOn = prepare(ctx, list, fbZorder) &&
-            ctx->mOverlay->validateAndSet(mDpy, ctx->dpyAttr[mDpy].fd);
-    return mModeOn;
-}
-
 //================= Low res====================================
-FBUpdateNonSplit::FBUpdateNonSplit(hwc_context_t *ctx, const int& dpy):
-        IFBUpdate(ctx, dpy) {}
+FBUpdateNonSplit::FBUpdateNonSplit(const int& dpy): IFBUpdate(dpy) {}
 
-void FBUpdateNonSplit::reset() {
+inline void FBUpdateNonSplit::reset() {
     IFBUpdate::reset();
     mDest = ovutils::OV_INVALID;
 }
 
 bool FBUpdateNonSplit::preRotateExtDisplay(hwc_context_t *ctx,
-                                            hwc_layer_1_t *layer,
                                             ovutils::Whf &info,
                                             hwc_rect_t& sourceCrop,
                                             ovutils::eMdpFlags& mdpFlags,
@@ -85,11 +68,6 @@ bool FBUpdateNonSplit::preRotateExtDisplay(hwc_context_t *ctx,
     if(mDpy && (extOrient & HWC_TRANSFORM_ROT_90)) {
         mRot = ctx->mRotMgr->getNext();
         if(mRot == NULL) return false;
-        ctx->mLayerRotMap[mDpy]->add(layer, mRot);
-        // Composed FB content will have black bars, if the viewFrame of the
-        // external is different from {0, 0, fbWidth, fbHeight}, so intersect
-        // viewFrame with sourceCrop to avoid those black bars
-        sourceCrop = getIntersection(sourceCrop, ctx->mViewFrame[mDpy]);
         //Configure rotator for pre-rotation
         if(configRotator(mRot, info, sourceCrop, mdpFlags, orient, 0) < 0) {
             ALOGE("%s: configRotator Failed!", __FUNCTION__);
@@ -127,10 +105,9 @@ bool FBUpdateNonSplit::configure(hwc_context_t *ctx, hwc_display_contents_1 *lis
             layer->compositionType = HWC_OVERLAY;
         }
         overlay::Overlay& ov = *(ctx->mOverlay);
-
-        ovutils::Whf info(mAlignedFBWidth,
-                mAlignedFBHeight,
-                ovutils::getMdpFormat(HAL_PIXEL_FORMAT_RGBA_8888));
+        private_handle_t *hnd = (private_handle_t *)layer->handle;
+        ovutils::Whf info(hnd->width, hnd->height,
+                          ovutils::getMdpFormat(hnd->format), hnd->size);
 
         //Request a pipe
         ovutils::eMdpPipeType type = ovutils::OV_MDP_PIPE_ANY;
@@ -155,7 +132,7 @@ bool FBUpdateNonSplit::configure(hwc_context_t *ctx, hwc_display_contents_1 *lis
         ovutils::eIsFg isFg = ovutils::IS_FG_OFF;
         ovutils::eZorder zOrder = static_cast<ovutils::eZorder>(fbZorder);
 
-        hwc_rect_t sourceCrop = integerizeSourceCrop(layer->sourceCropf);
+        hwc_rect_t sourceCrop = layer->sourceCrop;
         hwc_rect_t displayFrame = layer->displayFrame;
         int transform = layer->transform;
         int rotFlags = ovutils::ROT_FLAGS_NONE;
@@ -181,14 +158,11 @@ bool FBUpdateNonSplit::configure(hwc_context_t *ctx, hwc_display_contents_1 *lis
                 displayFrame = sourceCrop;
             }
         }
-        calcExtDisplayPosition(ctx, NULL, mDpy, sourceCrop, displayFrame,
+        calcExtDisplayPosition(ctx, hnd, mDpy, sourceCrop, displayFrame,
                                    transform, orient);
-        //Store the displayFrame, will be used in getDisplayViewFrame
-        ctx->dpyAttr[mDpy].mDstRect = displayFrame;
         setMdpFlags(layer, mdpFlags, 0, transform);
         // For External use rotator if there is a rotation value set
-        ret = preRotateExtDisplay(ctx, layer, info,
-                sourceCrop, mdpFlags, rotFlags);
+        ret = preRotateExtDisplay(ctx, info, sourceCrop, mdpFlags, rotFlags);
         if(!ret) {
             ALOGE("%s: preRotate for external Failed!", __FUNCTION__);
             ctx->mOverlay->clear(mDpy);
@@ -238,10 +212,9 @@ bool FBUpdateNonSplit::draw(hwc_context_t *ctx, private_handle_t *hnd)
 }
 
 //================= High res====================================
-FBUpdateSplit::FBUpdateSplit(hwc_context_t *ctx, const int& dpy):
-        IFBUpdate(ctx, dpy) {}
+FBUpdateSplit::FBUpdateSplit(const int& dpy): IFBUpdate(dpy) {}
 
-void FBUpdateSplit::reset() {
+inline void FBUpdateSplit::reset() {
     IFBUpdate::reset();
     mDestLeft = ovutils::OV_INVALID;
     mDestRight = ovutils::OV_INVALID;
@@ -255,8 +228,8 @@ bool FBUpdateSplit::prepare(hwc_context_t *ctx, hwc_display_contents_1 *list,
                  __FUNCTION__);
         return false;
     }
-    mModeOn = configure(ctx, list, fbZorder);
     ALOGD_IF(DEBUG_FBUPDATE, "%s, mModeOn = %d", __FUNCTION__, mModeOn);
+    mModeOn = configure(ctx, list, fbZorder);
     return mModeOn;
 }
 
@@ -273,10 +246,9 @@ bool FBUpdateSplit::configure(hwc_context_t *ctx,
             layer->compositionType = HWC_OVERLAY;
         }
         overlay::Overlay& ov = *(ctx->mOverlay);
-
-        ovutils::Whf info(mAlignedFBWidth,
-                mAlignedFBHeight,
-                ovutils::getMdpFormat(HAL_PIXEL_FORMAT_RGBA_8888));
+        private_handle_t *hnd = (private_handle_t *)layer->handle;
+        ovutils::Whf info(hnd->width, hnd->height,
+                          ovutils::getMdpFormat(hnd->format), hnd->size);
 
         //Request left pipe
         ovutils::eDest destL = ov.nextPipe(ovutils::OV_MDP_PIPE_ANY, mDpy,
@@ -326,7 +298,7 @@ bool FBUpdateSplit::configure(hwc_context_t *ctx,
                                 getBlending(layer->blending));
         ov.setSource(pargR, destR);
 
-        hwc_rect_t sourceCrop = integerizeSourceCrop(layer->sourceCropf);
+        hwc_rect_t sourceCrop = layer->sourceCrop;
         hwc_rect_t displayFrame = layer->displayFrame;
 
         const float xres = ctx->dpyAttr[mDpy].xres;

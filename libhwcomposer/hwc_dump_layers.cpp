@@ -38,6 +38,7 @@
 #include <comptype.h>
 #include <SkBitmap.h>
 #include <SkImageEncoder.h>
+
 namespace qhwc {
 
 // MAX_ALLOWED_FRAMEDUMPS must be capped to (LONG_MAX - 1)
@@ -57,12 +58,11 @@ HwcDebug::HwcDebug(uint32_t dpy):
   mDpy(dpy) {
     char dumpPropStr[PROPERTY_VALUE_MAX];
     if(mDpy) {
-        strlcpy(mDisplayName, "external", sizeof(mDisplayName));
+        strncpy(mDisplayName, "external", strlen("external"));
     } else {
-        strlcpy(mDisplayName, "primary", sizeof(mDisplayName));
+        strncpy(mDisplayName, "primary", strlen("primary"));
     }
-    snprintf(mDumpPropKeyDisplayType, sizeof(mDumpPropKeyDisplayType),
-             "debug.sf.dump.%s", (char *)mDisplayName);
+    sprintf(mDumpPropKeyDisplayType, "debug.sf.dump.%s", (char *)mDisplayName);
 
     if ((property_get("debug.sf.dump.enable", dumpPropStr, NULL) > 0)) {
         if(!strncmp(dumpPropStr, "true", strlen("true"))) {
@@ -110,7 +110,7 @@ bool HwcDebug::needToDumpLayers()
     if ((property_get("debug.sf.dump.png", dumpPropStr, NULL) > 0) &&
             (strncmp(dumpPropStr, mDumpPropStrPng, PROPERTY_VALUE_MAX - 1))) {
         // Strings exist & not equal implies it has changed, so trigger a dump
-        strlcpy(mDumpPropStrPng, dumpPropStr, sizeof(mDumpPropStrPng));
+        strncpy(mDumpPropStrPng, dumpPropStr, PROPERTY_VALUE_MAX - 1);
         mDumpCntLimPng = atoi(dumpPropStr);
         if (mDumpCntLimPng > MAX_ALLOWED_FRAMEDUMPS) {
             ALOGW("Warning: Using debug.sf.dump.png %d (= max)",
@@ -119,7 +119,7 @@ bool HwcDebug::needToDumpLayers()
         }
         mDumpCntLimPng = (mDumpCntLimPng < 0) ? 0: mDumpCntLimPng;
         if (mDumpCntLimPng) {
-            snprintf(mDumpDirPng, sizeof(mDumpDirPng),
+            sprintf(mDumpDirPng,
                     "/data/sfdump.png.%04d.%02d.%02d.%02d.%02d.%02d",
                     dumpTime.tm_year + 1900, dumpTime.tm_mon + 1,
                     dumpTime.tm_mday, dumpTime.tm_hour,
@@ -140,7 +140,7 @@ bool HwcDebug::needToDumpLayers()
     if ((property_get("debug.sf.dump", dumpPropStr, NULL) > 0) &&
             (strncmp(dumpPropStr, mDumpPropStrRaw, PROPERTY_VALUE_MAX - 1))) {
         // Strings exist & not equal implies it has changed, so trigger a dump
-        strlcpy(mDumpPropStrRaw, dumpPropStr, sizeof(mDumpPropStrRaw));
+        strncpy(mDumpPropStrRaw, dumpPropStr, PROPERTY_VALUE_MAX - 1);
         mDumpCntLimRaw = atoi(dumpPropStr);
         if (mDumpCntLimRaw > MAX_ALLOWED_FRAMEDUMPS) {
             ALOGW("Warning: Using debug.sf.dump %d (= max)",
@@ -149,7 +149,7 @@ bool HwcDebug::needToDumpLayers()
         }
         mDumpCntLimRaw = (mDumpCntLimRaw < 0) ? 0: mDumpCntLimRaw;
         if (mDumpCntLimRaw) {
-            snprintf(mDumpDirRaw, sizeof(mDumpDirRaw),
+            sprintf(mDumpDirRaw,
                     "/data/sfdump.raw.%04d.%02d.%02d.%02d.%02d.%02d",
                     dumpTime.tm_year + 1900, dumpTime.tm_mon + 1,
                     dumpTime.tm_mday, dumpTime.tm_hour,
@@ -213,7 +213,7 @@ void HwcDebug::logLayer(size_t layerIndex, hwc_layer_1_t hwLayers[])
     }
 
     hwc_layer_1_t *layer = &hwLayers[layerIndex];
-    hwc_rect_t sourceCrop = integerizeSourceCrop(layer->sourceCropf);
+    hwc_rect_t sourceCrop = layer->sourceCrop;
     hwc_rect_t displayFrame = layer->displayFrame;
     size_t numHwcRects = layer->visibleRegionScreen.numRects;
     hwc_rect_t const *hwcRects = layer->visibleRegionScreen.rects;
@@ -236,7 +236,7 @@ void HwcDebug::logLayer(size_t layerIndex, hwc_layer_1_t hwLayers[])
     // Log Line 1
     ALOGI("Display[%s] Layer[%d] SrcBuff[%dx%d] SrcCrop[%dl, %dt, %dr, %db] "
         "DispFrame[%dl, %dt, %dr, %db] VisRegsScr%s", mDisplayName, layerIndex,
-        (hnd)? getWidth(hnd) : -1, (hnd)? getHeight(hnd) : -1,
+        (hnd)? hnd->width : -1, (hnd)? hnd->height : -1,
         sourceCrop.left, sourceCrop.top,
         sourceCrop.right, sourceCrop.bottom,
         displayFrame.left, displayFrame.top,
@@ -274,13 +274,11 @@ void HwcDebug::dumpLayer(size_t layerIndex, hwc_layer_1_t hwLayers[])
     bool needDumpRaw = (mDumpCntrRaw <= mDumpCntLimRaw)? true:false;
 
     if (needDumpPng) {
-        snprintf(dumpLogStrPng, sizeof(dumpLogStrPng),
-            "[png-dump-frame: %03d of %03d]", mDumpCntrPng,
+        sprintf(dumpLogStrPng, "[png-dump-frame: %03d of %03d]", mDumpCntrPng,
             mDumpCntLimPng);
     }
     if (needDumpRaw) {
-        snprintf(dumpLogStrRaw, sizeof(dumpLogStrRaw),
-            "[raw-dump-frame: %03d of %03d]", mDumpCntrRaw,
+        sprintf(dumpLogStrRaw, "[raw-dump-frame: %03d of %03d]", mDumpCntrRaw,
             mDumpCntLimRaw);
     }
 
@@ -310,8 +308,7 @@ void HwcDebug::dumpLayer(size_t layerIndex, hwc_layer_1_t hwLayers[])
         char dumpFilename[PATH_MAX];
         SkBitmap *tempSkBmp = new SkBitmap();
         SkBitmap::Config tempSkBmpConfig = SkBitmap::kNo_Config;
-        snprintf(dumpFilename, sizeof(dumpFilename),
-            "%s/sfdump%03d.layer%d.%s.png", mDumpDirPng,
+        sprintf(dumpFilename, "%s/sfdump%03d.layer%d.%s.png", mDumpDirPng,
             mDumpCntrPng, layerIndex, mDisplayName);
 
         switch (hnd->format) {
@@ -321,6 +318,8 @@ void HwcDebug::dumpLayer(size_t layerIndex, hwc_layer_1_t hwLayers[])
                 tempSkBmpConfig = SkBitmap::kARGB_8888_Config;
                 break;
             case HAL_PIXEL_FORMAT_RGB_565:
+            case HAL_PIXEL_FORMAT_RGBA_5551:
+            case HAL_PIXEL_FORMAT_RGBA_4444:
                 tempSkBmpConfig = SkBitmap::kRGB_565_Config;
                 break;
             case HAL_PIXEL_FORMAT_RGB_888:
@@ -329,7 +328,7 @@ void HwcDebug::dumpLayer(size_t layerIndex, hwc_layer_1_t hwLayers[])
                 break;
         }
         if (SkBitmap::kNo_Config != tempSkBmpConfig) {
-            tempSkBmp->setConfig(tempSkBmpConfig, getWidth(hnd), getHeight(hnd));
+            tempSkBmp->setConfig(tempSkBmpConfig, hnd->width, hnd->height);
             tempSkBmp->setPixels((void*)hnd->base);
             bResult = SkImageEncoder::EncodeFile(dumpFilename,
                                     *tempSkBmp, SkImageEncoder::kPNG_Type, 100);
@@ -347,10 +346,9 @@ void HwcDebug::dumpLayer(size_t layerIndex, hwc_layer_1_t hwLayers[])
     if (needDumpRaw && hnd->base) {
         char dumpFilename[PATH_MAX];
         bool bResult = false;
-        snprintf(dumpFilename, sizeof(dumpFilename),
-            "%s/sfdump%03d.layer%d.%dx%d.%s.%s.raw",
+        sprintf(dumpFilename, "%s/sfdump%03d.layer%d.%dx%d.%s.%s.raw",
             mDumpDirRaw, mDumpCntrRaw,
-            layerIndex, getWidth(hnd), getHeight(hnd),
+            layerIndex, hnd->width, hnd->height,
             pixFormatStr, mDisplayName);
         FILE* fp = fopen(dumpFilename, "w+");
         if (NULL != fp) {
@@ -370,66 +368,71 @@ void HwcDebug::getHalPixelFormatStr(int format, char pixFormatStr[])
 
     switch(format) {
         case HAL_PIXEL_FORMAT_RGBA_8888:
-            strlcpy(pixFormatStr, "RGBA_8888", sizeof(pixFormatStr));
+            strcpy(pixFormatStr, "RGBA_8888");
             break;
         case HAL_PIXEL_FORMAT_RGBX_8888:
-            strlcpy(pixFormatStr, "RGBX_8888", sizeof(pixFormatStr));
+            strcpy(pixFormatStr, "RGBX_8888");
             break;
         case HAL_PIXEL_FORMAT_RGB_888:
-            strlcpy(pixFormatStr, "RGB_888", sizeof(pixFormatStr));
+            strcpy(pixFormatStr, "RGB_888");
             break;
         case HAL_PIXEL_FORMAT_RGB_565:
-            strlcpy(pixFormatStr, "RGB_565", sizeof(pixFormatStr));
+            strcpy(pixFormatStr, "RGB_565");
             break;
         case HAL_PIXEL_FORMAT_BGRA_8888:
-            strlcpy(pixFormatStr, "BGRA_8888", sizeof(pixFormatStr));
+            strcpy(pixFormatStr, "BGRA_8888");
+            break;
+        case HAL_PIXEL_FORMAT_RGBA_5551:
+            strcpy(pixFormatStr, "RGBA_5551");
+            break;
+        case HAL_PIXEL_FORMAT_RGBA_4444:
+            strcpy(pixFormatStr, "RGBA_4444");
             break;
         case HAL_PIXEL_FORMAT_YV12:
-            strlcpy(pixFormatStr, "YV12", sizeof(pixFormatStr));
+            strcpy(pixFormatStr, "YV12");
             break;
         case HAL_PIXEL_FORMAT_YCbCr_422_SP:
-            strlcpy(pixFormatStr, "YCbCr_422_SP_NV16", sizeof(pixFormatStr));
+            strcpy(pixFormatStr, "YCbCr_422_SP_NV16");
             break;
         case HAL_PIXEL_FORMAT_YCrCb_420_SP:
-            strlcpy(pixFormatStr, "YCrCb_420_SP_NV21", sizeof(pixFormatStr));
+            strcpy(pixFormatStr, "YCrCb_420_SP_NV21");
             break;
         case HAL_PIXEL_FORMAT_YCbCr_422_I:
-            strlcpy(pixFormatStr, "YCbCr_422_I_YUY2", sizeof(pixFormatStr));
+            strcpy(pixFormatStr, "YCbCr_422_I_YUY2");
             break;
         case HAL_PIXEL_FORMAT_YCrCb_422_I:
-            strlcpy(pixFormatStr, "YCrCb_422_I_YVYU", sizeof(pixFormatStr));
+            strlcpy(pixFormatStr, "YCrCb_422_I_YVYU",
+                            sizeof("YCrCb_422_I_YVYU"));
             break;
         case HAL_PIXEL_FORMAT_NV12_ENCODEABLE:
-            strlcpy(pixFormatStr, "NV12_ENCODEABLE", sizeof(pixFormatStr));
+            strcpy(pixFormatStr, "NV12_ENCODEABLE");
             break;
         case HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED:
-            strlcpy(pixFormatStr, "YCbCr_420_SP_TILED_TILE_4x2",
-                   sizeof(pixFormatStr));
+            strcpy(pixFormatStr, "YCbCr_420_SP_TILED_TILE_4x2");
             break;
         case HAL_PIXEL_FORMAT_YCbCr_420_SP:
-            strlcpy(pixFormatStr, "YCbCr_420_SP", sizeof(pixFormatStr));
+            strcpy(pixFormatStr, "YCbCr_420_SP");
             break;
         case HAL_PIXEL_FORMAT_YCrCb_420_SP_ADRENO:
-            strlcpy(pixFormatStr, "YCrCb_420_SP_ADRENO", sizeof(pixFormatStr));
+            strcpy(pixFormatStr, "YCrCb_420_SP_ADRENO");
             break;
         case HAL_PIXEL_FORMAT_YCrCb_422_SP:
-            strlcpy(pixFormatStr, "YCrCb_422_SP", sizeof(pixFormatStr));
+            strcpy(pixFormatStr, "YCrCb_422_SP");
             break;
         case HAL_PIXEL_FORMAT_R_8:
-            strlcpy(pixFormatStr, "R_8", sizeof(pixFormatStr));
+            strcpy(pixFormatStr, "R_8");
             break;
         case HAL_PIXEL_FORMAT_RG_88:
-            strlcpy(pixFormatStr, "RG_88", sizeof(pixFormatStr));
+            strcpy(pixFormatStr, "RG_88");
             break;
         case HAL_PIXEL_FORMAT_INTERLACE:
-            strlcpy(pixFormatStr, "INTERLACE", sizeof(pixFormatStr));
+            strcpy(pixFormatStr, "INTERLACE");
             break;
         case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
-            strlcpy(pixFormatStr, "YCbCr_420_SP_VENUS", sizeof(pixFormatStr));
+            strcpy(pixFormatStr, "YCbCr_420_SP_VENUS");
             break;
         default:
-            size_t len = sizeof(pixFormatStr);
-            snprintf(pixFormatStr, len, "Unknown0x%X", format);
+            sprintf(pixFormatStr, "Unknown0x%X", format);
             break;
     }
 }

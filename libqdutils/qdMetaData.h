@@ -31,19 +31,6 @@
 #define _QDMETADATA_H
 
 #define MAX_IGC_LUT_ENTRIES 256
-#define MAX_VFM_DATA_SIZE   64 //bytes per data buffer
-#define MAX_VFM_DATA_COUNT  16 //number of data buffers
-
-/* This macro finds the index corresponding to a type */
-/* This is equivalent to indx = LOG_2(type) */
-inline int32_t getVfmDataIdx(int32_t type){
-    int32_t indx = 0, x = type;
-    while( x >> 1) {
-        x = (x >> 1);
-        indx++;
-    }
-    return indx;
-}
 
 struct HSICData_t {
     int32_t hue;
@@ -65,28 +52,15 @@ struct IGCData_t{
     uint16_t c2[MAX_IGC_LUT_ENTRIES];
 };
 
-struct BufferDim_t {
-    int32_t sliceWidth;
-    int32_t sliceHeight;
-};
-
-struct VfmData_t {
-    int32_t dataType;
-    char    data[MAX_VFM_DATA_SIZE];
-};
-
 struct MetaData_t {
     int32_t operation;
     int32_t interlaced;
-    BufferDim_t bufferDim;
     HSICData_t hsicData;
     int32_t sharpness;
     int32_t video_interface;
     IGCData_t igcData;
     Sharp2Data_t Sharp2Data;
     int64_t timestamp;
-    int32_t vfmDataBitMap;
-    VfmData_t vfmData[MAX_VFM_DATA_COUNT];
 };
 
 typedef enum {
@@ -96,9 +70,7 @@ typedef enum {
     PP_PARAM_VID_INTFC  = 0x0008,
     PP_PARAM_IGC        = 0x0010,
     PP_PARAM_SHARP2     = 0x0020,
-    PP_PARAM_TIMESTAMP  = 0x0040,
-    UPDATE_BUFFER_GEOMETRY = 0x0080,
-    PP_PARAM_VFM_DATA   = 0x0100,
+    PP_PARAM_TIMESTAMP  = 0x0040
 } DispParamType;
 
 int setMetaData(private_handle_t *handle, DispParamType paramType, void *param);

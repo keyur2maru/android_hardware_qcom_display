@@ -42,8 +42,6 @@
 #include <errno.h>
 #include "overlayUtils.h"
 
-#define IOCTL_DEBUG 0
-
 namespace overlay{
 
 namespace mdp_wrapper{
@@ -64,9 +62,6 @@ bool rotate(int fd, msm_rotator_data_info& rot);
 
 /* MSMFB_OVERLAY_SET */
 bool setOverlay(int fd, mdp_overlay& ov);
-
-/* MSMFB_OVERLAY_PREPARE */
-bool validateAndSet(const int& fd, mdp_overlay_list& list);
 
 /* MSM_ROTATOR_IOCTL_FINISH */
 bool endRotator(int fd, int sessionId);
@@ -167,15 +162,6 @@ inline bool setOverlay(int fd, mdp_overlay& ov) {
     if (ioctl(fd, MSMFB_OVERLAY_SET, &ov) < 0) {
         ALOGE("Failed to call ioctl MSMFB_OVERLAY_SET err=%s",
                 strerror(errno));
-        return false;
-    }
-    return true;
-}
-
-inline bool validateAndSet(const int& fd, mdp_overlay_list& list) {
-    if (ioctl(fd, MSMFB_OVERLAY_PREPARE, &list) < 0) {
-        ALOGD_IF(IOCTL_DEBUG, "Failed to call ioctl MSMFB_OVERLAY_PREPARE "
-                "err=%s", strerror(errno));
         return false;
     }
     return true;

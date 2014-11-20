@@ -35,7 +35,6 @@
 #include "overlayUtils.h"
 #include "overlay.h"
 #include "mdp_version.h"
-#include "qd_utils.h"
 
 using namespace android;
 
@@ -43,9 +42,6 @@ namespace qhwc {
 #define MAX_SYSFS_FILE_PATH             255
 #define UNKNOWN_STRING                  "unknown"
 #define SPD_NAME_LENGTH                 16
-/* Max. resolution assignable to when downscale */
-#define SUPPORTED_DOWNSCALE_EXT_AREA    (1920*1080)
-
 
 int ExternalDisplay::configure() {
     if(!openFrameBuffer()) {
@@ -176,7 +172,6 @@ void ExternalDisplay::readCEUnderscanInfo()
     int len = -1;
     char scanInfo[17];
     char *ce_info_str = NULL;
-    char *save_ptr;
     const char token[] = ", \n";
     int ce_info = -1;
     char sysFsScanInfoFilePath[MAX_SYSFS_FILE_PATH];
@@ -212,13 +207,13 @@ void ExternalDisplay::readCEUnderscanInfo()
      */
 
     /* PT */
-    ce_info_str = strtok_r(scanInfo, token, &save_ptr);
+    ce_info_str = strtok(scanInfo, token);
     if (ce_info_str) {
         /* IT */
-        ce_info_str = strtok_r(NULL, token, &save_ptr);
+        ce_info_str = strtok(NULL, token);
         if (ce_info_str) {
             /* CE */
-            ce_info_str = strtok_r(NULL, token, &save_ptr);
+            ce_info_str = strtok(NULL, token);
             if (ce_info_str)
                 ce_info = atoi(ce_info_str);
         }
@@ -319,7 +314,6 @@ bool ExternalDisplay::readResolution()
         if ( len <= 0) {
             ALOGE("%s: edid_modes file empty '%s'",
                      __FUNCTION__, sysFsEDIDFilePath);
-            edidStr[0] = '\0';
         }
         else {
             while (len > 1 && isspace(edidStr[len-1])) {
@@ -587,37 +581,21 @@ void ExternalDisplay::setAttributes() {
         mHwcContext->dpyAttr[HWC_DISPLAY_EXTERNAL].xres = width;
         mHwcContext->dpyAttr[HWC_DISPLAY_EXTERNAL].yres = height;
         mHwcContext->dpyAttr[HWC_DISPLAY_EXTERNAL].mDownScaleMode = false;
-        if(!qdutils::MDPVersion::getInstance().is8x26()
-                && mHwcContext->mMDPDownscaleEnabled) {
+        if(!qdutils::MDPVersion::getInstance().is8x26()) {
             int priW = mHwcContext->dpyAttr[HWC_DISPLAY_PRIMARY].xres;
             int priH = mHwcContext->dpyAttr[HWC_DISPLAY_PRIMARY].yres;
             // if primary resolution is more than the hdmi resolution
             // configure dpy attr to primary resolution and set
             // downscale mode
-            // Restrict this upto 1080p resolution max
-            if(((priW * priH) > (width * height)) &&
-               ((priW * priH) <= SUPPORTED_DOWNSCALE_EXT_AREA)) {
-                // tmpW and tmpH will hold the primary dimensions before we
-                // update the aspect ratio if necessary.
-                int tmpW = priW;
-                int tmpH = priH;
+            if((priW * priH) > (width * height)) {
+                mHwcContext->dpyAttr[HWC_DISPLAY_EXTERNAL].xres = priW;
+                mHwcContext->dpyAttr[HWC_DISPLAY_EXTERNAL].yres = priH;
                 // HDMI is always in landscape, so always assign the higher
                 // dimension to hdmi's xres
                 if(priH > priW) {
-                    tmpW = priH;
-                    tmpH = priW;
+                    mHwcContext->dpyAttr[HWC_DISPLAY_EXTERNAL].xres = priH;
+                    mHwcContext->dpyAttr[HWC_DISPLAY_EXTERNAL].yres = priW;
                 }
-                // The aspect ratios of the external and primary displays
-                // can be different. As a result, directly assigning primary
-                // resolution could lead to an incorrect final image.
-                // We get around this by calculating a new resolution by
-                // keeping aspect ratio intact.
-                hwc_rect r = {0, 0, 0, 0};
-                getAspectRatioPosition(tmpW, tmpH, width, height, r);
-                mHwcContext->dpyAttr[HWC_DISPLAY_EXTERNAL].xres =
-                                                              r.right - r.left;
-                mHwcContext->dpyAttr[HWC_DISPLAY_EXTERNAL].yres =
-                                                              r.bottom - r.top;
                 // Set External Display MDP Downscale mode indicator
                 mHwcContext->dpyAttr[HWC_DISPLAY_EXTERNAL].mDownScaleMode =true;
             }

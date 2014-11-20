@@ -35,13 +35,11 @@ namespace ovutils = overlay::utils;
 //Framebuffer update Interface
 class IFBUpdate {
 public:
-    explicit IFBUpdate(hwc_context_t *ctx, const int& dpy);
+    explicit IFBUpdate(const int& dpy) : mDpy(dpy) {}
     virtual ~IFBUpdate() {};
     // Sets up members and prepares overlay if conditions are met
     virtual bool prepare(hwc_context_t *ctx, hwc_display_contents_1 *list,
-            int fbZorder) = 0;
-    virtual bool prepareAndValidate(hwc_context_t *ctx,
-            hwc_display_contents_1 *list, int fbZorder);
+                                                       int fbZorder) = 0;
     // Draws layer
     virtual bool draw(hwc_context_t *ctx, private_handle_t *hnd) = 0;
     //Reset values
@@ -53,14 +51,12 @@ protected:
     const int mDpy; // display to update
     bool mModeOn; // if prepare happened
     overlay::Rotator *mRot;
-    int mAlignedFBWidth;
-    int mAlignedFBHeight;
 };
 
 //Non-Split panel handler.
 class FBUpdateNonSplit : public IFBUpdate {
 public:
-    explicit FBUpdateNonSplit(hwc_context_t *ctx, const int& dpy);
+    explicit FBUpdateNonSplit(const int& dpy);
     virtual ~FBUpdateNonSplit() {};
     bool prepare(hwc_context_t *ctx, hwc_display_contents_1 *list,
             int fbZorder);
@@ -70,7 +66,6 @@ private:
     bool configure(hwc_context_t *ctx, hwc_display_contents_1 *list,
             int fbZorder);
     bool preRotateExtDisplay(hwc_context_t *ctx,
-                                 hwc_layer_1_t *layer,
                                  ovutils::Whf &info,
                                  hwc_rect_t& sourceCrop,
                                  ovutils::eMdpFlags& mdpFlags,
@@ -81,7 +76,7 @@ private:
 //Split panel handler.
 class FBUpdateSplit : public IFBUpdate {
 public:
-    explicit FBUpdateSplit(hwc_context_t *ctx, const int& dpy);
+    explicit FBUpdateSplit(const int& dpy);
     virtual ~FBUpdateSplit() {};
     bool prepare(hwc_context_t *ctx, hwc_display_contents_1 *list,
             int fbZorder);

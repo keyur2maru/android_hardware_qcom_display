@@ -307,33 +307,29 @@ int gralloc_perform(struct gralloc_module_t const* module,
                 break;
 
             }
+#ifdef QCOM_BSP
+        case GRALLOC_MODULE_PERFORM_UPDATE_BUFFER_GEOMETRY:
+            {
+                int width = va_arg(args, int);
+                int height = va_arg(args, int);
+                int format = va_arg(args, int);
+                private_handle_t* hnd =  va_arg(args, private_handle_t*);
+                if (private_handle_t::validate(hnd)) {
+                    return res;
+                }
+                hnd->width = width;
+                hnd->height = height;
+                hnd->format = format;
+                res = 0;
+            }
+            break;
+#endif
         case GRALLOC_MODULE_PERFORM_GET_STRIDE:
             {
                 int width   = va_arg(args, int);
                 int format  = va_arg(args, int);
                 int *stride = va_arg(args, int *);
-                int alignedw = 0, alignedh = 0;
-                AdrenoMemInfo::getInstance().getAlignedWidthAndHeight(width,
-                                     0, format, alignedw, alignedh);
-                *stride = alignedw;
-                res = 0;
-            } break;
-        case GRALLOC_MODULE_PERFORM_GET_CUSTOM_STRIDE_AND_HEIGHT_FROM_HANDLE:
-            {
-                private_handle_t* hnd =  va_arg(args, private_handle_t*);
-                int *stride = va_arg(args, int *);
-                int *height = va_arg(args, int *);
-                if (private_handle_t::validate(hnd)) {
-                    return res;
-                }
-                MetaData_t *metadata = (MetaData_t *)hnd->base_metadata;
-                if(metadata && metadata->operation & UPDATE_BUFFER_GEOMETRY) {
-                    *stride = metadata->bufferDim.sliceWidth;
-                    *height = metadata->bufferDim.sliceHeight;
-                } else {
-                    *stride = hnd->width;
-                    *height = hnd->height;
-                }
+                *stride = AdrenoMemInfo::getInstance().getStride(width, format);
                 res = 0;
             } break;
         default:

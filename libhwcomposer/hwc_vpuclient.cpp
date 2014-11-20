@@ -31,11 +31,9 @@
 #include "hwc_vpuclient.h"
 #include "hwc_utils.h"
 #include <vpu/vpu.h>
-#include <binder/Parcel.h>
 
 
 using namespace vpu;
-using namespace android;
 namespace qhwc {
 
 VPUClient::VPUClient()
@@ -80,14 +78,11 @@ int VPUClient::draw(hwc_context_t *ctx,
     return err;
 }
 
-int VPUClient::processCommand(uint32_t command,
-        const Parcel* inParcel, Parcel* outParcel)
+int VPUClient::processCommand(uint32_t command, uint32_t setting)
 {
     if(!mVPU)
         return 0;
-    //XXX: Enable when VPU enables it
-    //return mVPU->processCommand(command, inParcel, outParcel);
-    return 0;
+    return mVPU->processCommand(command, setting);
 }
 
 }; // namespace qhwc

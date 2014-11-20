@@ -35,9 +35,6 @@
 #include "utils/threads.h"
 
 struct MetaData_t;
-namespace scale {
-class Scale;
-};
 
 namespace overlay {
 class GenericPipe;
@@ -77,15 +74,6 @@ public:
      * asisgned to a mixer within a display it cannot be reused for another
      * mixer without being UNSET once*/
     utils::eDest nextPipe(utils::eMdpPipeType, int dpy, int mixer);
-    /* Returns the eDest corresponding to an already allocated pipeid.
-     * Useful for the reservation case, when libvpu reserves the pipe at its
-     * end, and expect the overlay to allocate a given pipe for a layer.
-     */
-    utils::eDest reservePipe(int pipeid);
-    /* getting dest for the given pipeid */
-    utils::eDest getDest(int pipeid);
-    /* getting overlay.pipeid for the given dest */
-    int getPipeId(utils::eDest dest);
 
     void setSource(const utils::PipeArgs args, utils::eDest dest);
     void setCrop(const utils::Dim& d, utils::eDest dest);
@@ -96,14 +84,6 @@ public:
     bool commit(utils::eDest dest);
     bool queueBuffer(int fd, uint32_t offset, utils::eDest dest);
 
-    /* pipe reservation session is running */
-    bool sessionInProgress(utils::eDest dest);
-    /* pipe reservation session has ended*/
-    bool isSessionEnded(utils::eDest dest);
-    /* start session for the pipe reservation */
-    void startSession(utils::eDest dest);
-    /* end all started sesisons */
-    void endAllSessions();
     /* Returns available ("unallocated") pipes for a display's mixer */
     int availablePipes(int dpy, int mixer);
     /* Returns available ("unallocated") pipes for a display */
@@ -120,8 +100,8 @@ public:
     void getDump(char *buf, size_t len);
     /* Reset usage and allocation bits on all pipes for given display */
     void clear(int dpy);
-    /* Validate the set of pipes for a display and set them in driver */
-    bool validateAndSet(const int& dpy, const int& fbFd);
+    /* Marks the display, whose pipes need to be forcibaly configured */
+    void forceSet(const int& dpy);
 
     /* Closes open pipes, called during startup */
     static int initOverlay();
@@ -141,14 +121,6 @@ private:
     void validate(int index);
     static void setDMAMultiplexingSupported();
     void dump() const;
-    /* Returns the scalar object */
-    static scale::Scale *getScalar();
-    /* Creates a scalar object using libscale.so */
-    static void initScalar();
-    /* Destroys the scalar object using libscale.so */
-    static void destroyScalar();
-    /* Sets the pipe type RGB/VG/DMA*/
-    void setPipeType(utils::eDest pipeIndex, const utils::eMdpPipeType pType);
 
     /* Just like a Facebook for pipes, but much less profile info */
     struct PipeBook {
@@ -182,13 +154,7 @@ private:
 
         static int NUM_PIPES;
         static utils::eMdpPipeType pipeTypeLUT[utils::OV_MAX];
-        /* Session for reserved pipes */
-        enum Session {
-            NONE,
-            START,
-            END
-        };
-        Session mSession;
+
 
     private:
         //usage tracks if a successful commit happened. So a pipe could be
@@ -214,10 +180,7 @@ private:
     static int sDpyFbMap[DPY_MAX];
     static int sDMAMode;
     static bool sDMAMultiplexingSupported;
-    static void *sLibScaleHandle;
-    static scale::Scale *sScale;
-
-    friend class MdpCtrl;
+    static int sForceSetBitmap;
 };
 
 inline void Overlay::validate(int index) {
@@ -292,8 +255,8 @@ inline int Overlay::getFbForDpy(const int& dpy) {
     return sDpyFbMap[dpy];
 }
 
-inline scale::Scale *Overlay::getScalar() {
-    return sScale;
+inline void Overlay::forceSet(const int& dpy) {
+    sForceSetBitmap |= (1 << dpy);
 }
 
 inline bool Overlay::PipeBook::valid() {
@@ -342,18 +305,6 @@ inline bool Overlay::PipeBook::isNotAllocated(int index) {
 
 inline utils::eMdpPipeType Overlay::PipeBook::getPipeType(utils::eDest dest) {
     return pipeTypeLUT[(int)dest];
-}
-
-inline void Overlay::startSession(utils::eDest dest) {
-    mPipeBook[(int)dest].mSession = PipeBook::START;
-}
-
-inline bool Overlay::sessionInProgress(utils::eDest dest) {
-    return (mPipeBook[(int)dest].mSession == PipeBook::START);
-}
-
-inline bool Overlay::isSessionEnded(utils::eDest dest) {
-    return (mPipeBook[(int)dest].mSession == PipeBook::END);
 }
 
 inline const char* Overlay::PipeBook::getDestStr(utils::eDest dest) {

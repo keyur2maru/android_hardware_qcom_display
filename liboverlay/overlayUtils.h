@@ -81,6 +81,10 @@
 #define MDSS_MDP_DUAL_PIPE 0x200
 #endif
 
+#ifndef MDP_SECURE_DISPLAY_OVERLAY_SESSION
+#define MDP_SECURE_DISPLAY_OVERLAY_SESSION 0x00002000
+#endif
+
 #define FB_DEVICE_TEMPLATE "/dev/graphics/fb%u"
 
 namespace overlay {
@@ -271,7 +275,6 @@ enum eMdpFlags {
     OV_MDP_PP_EN = MDP_OVERLAY_PP_CFG_EN,
     OV_MDSS_MDP_BWC_EN = MDP_BWC_EN,
     OV_MDSS_MDP_DUAL_PIPE = MDSS_MDP_DUAL_PIPE,
-    OV_MDP_SOLID_FILL = MDP_SOLID_FILL,
 };
 
 enum eZorder {
@@ -422,7 +425,7 @@ int getMdpOrient(eTransform rotation);
 const char* getFormatString(int format);
 
 template <class T>
-inline void memset0(T& t) { ::memset(&t, 0, sizeof(t)); }
+inline void memset0(T& t) { ::memset(&t, 0, sizeof(T)); }
 
 template <class T> inline void swap ( T& a, T& b )
 {
@@ -806,7 +809,7 @@ inline bool OvFD::open(const char* const dev, int flags)
 
 inline void OvFD::setPath(const char* const dev)
 {
-    ::strlcpy(mPath, dev, sizeof(mPath));
+    ::strncpy(mPath, dev, utils::MAX_PATH_LEN);
 }
 
 inline bool OvFD::close()

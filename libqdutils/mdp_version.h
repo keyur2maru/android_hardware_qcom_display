@@ -38,10 +38,6 @@
 */
 using namespace android;
 namespace qdutils {
-// These panel definitions are available at mdss_mdp.h which is internal header
-// file and is not available at <linux/mdss_mdp.h>.
-// ToDo: once it is available at linux/mdss_mdp.h, these below definitions can
-// be removed.
 enum mdp_version {
     MDP_V_UNKNOWN = 0,
     MDP_V2_2    = 220,
@@ -57,18 +53,17 @@ enum mdp_version {
     MDSS_V5     = 500,
 };
 
-// chip variants have same major number and minor numbers usually vary
-// for e.g., MDSS_MDP_HW_REV_101 is 0x10010000
-//                                    1001       -  major number
-//                                        0000   -  minor number
-// 8x26 v1 minor number is 0000
-//      v2 minor number is 0001 etc..
+enum mdp_rev {
+    MDSS_MDP_HW_REV_100 = 0x10000000, //8974 v1
+    MDSS_MDP_HW_REV_101 = 0x10010000, //8x26
+    MDSS_MDP_HW_REV_102 = 0x10020000, //8974 v2
+    MDSS_MDP_HW_REV_103 = 0x10030000, //Future
+};
 
 enum {
     MAX_DISPLAY_DIM = 2048,
 };
 
-#define NO_PANEL         '0'
 #define MDDI_PANEL       '1'
 #define EBI2_PANEL       '2'
 #define LCDC_PANEL       '3'
@@ -79,7 +74,6 @@ enum {
 #define MIPI_CMD_PANEL   '9'
 #define WRITEBACK_PANEL  'a'
 #define LVDS_PANEL       'b'
-#define EDP_PANEL        'c'
 
 class MDPVersion;
 
@@ -92,28 +86,13 @@ struct Split {
     friend class MDPVersion;
 };
 
-struct PanelInfo {
-    char mType;                  // Smart or Dumb
-    int mPartialUpdateEnable;    // Partial update feature
-    int mLeftAlign;              // ROI left alignment restriction
-    int mWidthAlign;             // ROI width alignment restriction
-    int mTopAlign;               // ROI top alignment restriction
-    int mHeightAlign;            // ROI height alignment restriction
-    int mMinROIWidth;            // Min width needed for ROI
-    int mMinROIHeight;           // Min height needed for ROI
-    PanelInfo() : mType(NO_PANEL), mPartialUpdateEnable(0),
-    mLeftAlign(0), mWidthAlign(0), mTopAlign(0), mHeightAlign(0),
-    mMinROIWidth(0), mMinROIHeight(0){}
-    friend class MDPVersion;
-};
-
 class MDPVersion : public Singleton <MDPVersion>
 {
 public:
     MDPVersion();
     ~MDPVersion();
     int getMDPVersion() {return mMDPVersion;}
-    char getPanelType() {return mPanelInfo.mType;}
+    char getPanelType() {return mPanelType;}
     bool hasOverlay() {return mHasOverlay;}
     uint8_t getTotalPipes() { return (mRGBPipes + mVGPipes + mDMAPipes);}
     uint8_t getRGBPipes() { return mRGBPipes; }
@@ -122,33 +101,15 @@ public:
     bool supportsDecimation();
     uint32_t getMaxMDPDownscale();
     bool supportsBWC();
-    int getLeftSplit() { return mSplit.left(); }
-    int getRightSplit() { return mSplit.right(); }
-    bool isPartialUpdateEnabled() {
-        return mPanelInfo.mPartialUpdateEnable &&
-                mPanelInfo.mType == MIPI_CMD_PANEL;
-    }
-    int getLeftAlign() { return mPanelInfo.mLeftAlign; }
-    int getWidthAlign() { return mPanelInfo.mWidthAlign; }
-    int getTopAlign() { return mPanelInfo.mTopAlign; }
-    int getHeightAlign() { return mPanelInfo.mHeightAlign; }
-    int getMinROIWidth() { return mPanelInfo.mMinROIWidth; }
-    int getMinROIHeight() { return mPanelInfo.mMinROIHeight; }
-    unsigned long getLowBw() { return mLowBw; }
-    unsigned long getHighBw() { return mHighBw; }
     bool is8x26();
     bool is8x74v2();
-    bool is8084();
-    bool is8092();
-
+    int getRecommendedPipeCnt();
+    int getLeftSplit() { return mSplit.left(); }
+    int getRightSplit() { return mSplit.right(); }
 private:
-    bool updateSysFsInfo();
-    void updatePanelInfo();
-    bool updateSplitInfo();
-    int tokenizeParams(char *inputParams, const char *delim,
-                        char* tokenStr[], int *idx);
     int mFd;
     int mMDPVersion;
+    char mPanelType;
     bool mHasOverlay;
     uint32_t mMdpRev;
     uint8_t mRGBPipes;
@@ -156,11 +117,9 @@ private:
     uint8_t mDMAPipes;
     uint32_t mFeatures;
     uint32_t mMDPDownscale;
-    uint32_t mMDPUpscale;
+    uint8_t mSMPTotalCount;
+    uint8_t mSMPLimitPerPipe;
     Split mSplit;
-    PanelInfo mPanelInfo;
-    unsigned long mLowBw; //kbps
-    unsigned long mHighBw; //kbps
 };
 }; //namespace qdutils
 #endif //INCLUDE_LIBQCOMUTILS_MDPVER
